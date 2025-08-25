@@ -1,102 +1,132 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
 app.use(cors());
 app.use(express.json());
 
-const { createClient } = require('@supabase/supabase-js');
-const { OpenAI } = require('openai');
+// Dados temporários em memória
+let users = {};
+let chats = [];
 
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
-);
-
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
-
-// Rota principal
 app.get('/', (req, res) => {
-    res.json({ 
-        status: 'online', 
-        service: 'OABOT API',
-        version: '1.0' 
-    });
-});
-
-// Chat endpoint
-app.post('/chat', async (req, res) => {
-    const { message } = req.body;
-    
-    try {
-        const completion = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-                {
-                    role: 'system',
-                    content: 'Você é o OABOT, assistente especializado em preparação para o Exame da OAB. Responda de forma clara e objetiva em português brasileiro.'
-                },
-                { role: 'user', content: message }
-            ],
-            max_tokens: 500
-        });
-        
-        res.json({ 
-            response: completion.choices[0].message.content 
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Erro ao processar' });
-    }
-});
-
-
-
-
-app.listen(PORT, () => {
-    console.log(`OABOT API rodando na porta ${PORT}`);
-});
-
-// Rota para cadastro simples
-app.post('/api/register', async (req, res) => {
-  const { email } = req.body;
-  const { data, error } = await supabase
-    .from('profiles')
-    .insert({ email, credits: 5 })
-    .select();
-  if (error) {
-    return res.status(400).json({ error: 'Email j\u00e1 cadastrado' });
-  }
-  res.json({ success: true, user: data[0] });
-});
-
-// Rota para verificar cr\u00e9ditos
-app.get('/api/credits/:email', async (req, res) => {
-  const { email } = req.params;
-  const { data } = await supabase
-    .from('profiles')
-    .select('credits')
-    .eq('email', email)
-    .single();
-  res.json({ credits: data?.credits || 0 });
-});
-
-// Rota b\u00e1sica do admin
-app.get('/api/admin/stats', async (req, res) => {
-  const { data: users } = await supabase.from('profiles').select('*');
-  const { data: chats } = await supabase
-    .from('chat_history')
-    .select('*')
-    .gte('created_at', new Date().toISOString().split('T')[0]);
-  res.json({
-    totalUsers: users?.length || 0,
-    questionsToday: chats?.length || 0,
-    users: users || []
+  res.json({ 
+    status: 'online',
+    service: 'OABOT API v2.0',
+    timestamp: new Date(),
+    endpoints: ['/chat', '/api/register', '/api/credits/:email', '/api/admin/stats']
   });
 });
 
-// Porta de execucao
-const PORT = process.env.PORT || 3000;
+app.post('/chat', async (req, res) => {
+  try {
+    const { message, email } = req.body;
+    
+    if (!email || !message) {
+      return res.status(400).json({ error: 'Email e mensagem obrigatórios' });
+    }
+    
+    // Verificar usuário
+    if (!users[email]) {
+      users[email] = { credits: 5, plan: 'free' };
+    }
+    
+    if (users[email].credits <= 0) {
+      return res.status(403).json({ error: 'Sem créditos disponíveis' });
+    }
+    
+    // Resposta simulada (em produção, chamar OpenAI aqui)
+    const response = `[OABOT] Analisando sua pergunta sobre: "${message}". 
+    
+Para segunda fase penal do Exame de Ordem, lembre-se:
+- Habeas Corpus: remédio constitucional (art. 5º, LXVIII, CF)
+- Apelação: recurso contra sentença (art. 593, CPP)
+- RESE: Recurso em Sentido Estrito (art. 581, CPP)
+- Resposta à Acusação: defesa preliminar (art. 396-A, CPP)`;
+    
+    // Salvar chat
+    chats.push({
+      email,
+      question: message,
+      answer: response,
+      timestamp: new Date()
+    });
+    
+    // Descontar crédito
+    users[email].credits--;
+    
+    res.json({ 
+      response,
+      credits_remaining: users[email].credits
+    });
+    
+  } catch (error) {
+    console.error('Erro:', error);
+    res.status(500).json({ error: 'Erro no processamento' });
+  }
+});
+
+app.post('/api/register', async (req, res) => {
+  const { email, name, coupon } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ error: 'Email obrigatório' });
+  }
+  
+  // Verificar cupom beta
+  let credits = 5;
+  let plan = 'free';
+  
+  if (coupon && coupon.startsWith('OABOT-BETA-')) {
+    credits = 50;
+    plan = 'beta';
+  }
+  
+  users[email] = {
+    email,
+    name: name || email.split('@')[0],
+    credits,
+    plan,
+    created_at: new Date()
+  };
+  
+  res.json({ 
+    success: true,
+    user: users[email]
+  });
+});
+
+app.get('/api/credits/:email', async (req, res) => {
+  const { email } = req.params;
+  const user = users[email] || { credits: 0, plan: 'free' };
+  
+  res.json({ 
+    email,
+    credits: user.credits,
+    plan: user.plan
+  });
+});
+
+app.get('/api/admin/stats', async (req, res) => {
+  const totalUsers = Object.keys(users).length;
+  const totalChats = chats.length;
+  const recentUsers = Object.values(users).slice(-10);
+  
+  res.json({
+    total_users: totalUsers,
+    total_chats: totalChats,
+    active_today: Object.values(users).filter(u => {
+      const created = new Date(u.created_at || Date.now());
+      return created.toDateString() === new Date().toDateString();
+    }).length,
+    recent_users: recentUsers,
+    recent_chats: chats.slice(-5)
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`OABOT API rodando na porta ${PORT}`);
+  console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
+});
