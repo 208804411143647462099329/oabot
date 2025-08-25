@@ -1,0 +1,21 @@
+{
+  "name": "oabot-api",
+  "version": "3.0.0",
+  "main": "server-v3.js",
+  "scripts": {
+    "start": "node server-v3.js",
+    "dev": "nodemon server-v3.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "@supabase/supabase-js": "^2.39.0",
+    "openai": "^4.28.0",
+    "@anthropic-ai/sdk": "^0.16.0",
+    "@google/generative-ai": "^0.2.0",
+    "stripe": "^14.14.0",
+    "multer": "^1.4.5-lts.1",
+    "pdf-parse": "^1.1.1",
+    "@google-cloud/vision": "^4.0.2"
+  }
+}
