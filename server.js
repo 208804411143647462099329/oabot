@@ -53,7 +53,50 @@ app.post('/chat', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
+
+
+
 app.listen(PORT, () => {
     console.log(`OABOT API rodando na porta ${PORT}`);
 });
+
+// Rota para cadastro simples
+app.post('/api/register', async (req, res) => {
+  const { email } = req.body;
+  const { data, error } = await supabase
+    .from('profiles')
+    .insert({ email, credits: 5 })
+    .select();
+  if (error) {
+    return res.status(400).json({ error: 'Email j\u00e1 cadastrado' });
+  }
+  res.json({ success: true, user: data[0] });
+});
+
+// Rota para verificar cr\u00e9ditos
+app.get('/api/credits/:email', async (req, res) => {
+  const { email } = req.params;
+  const { data } = await supabase
+    .from('profiles')
+    .select('credits')
+    .eq('email', email)
+    .single();
+  res.json({ credits: data?.credits || 0 });
+});
+
+// Rota b\u00e1sica do admin
+app.get('/api/admin/stats', async (req, res) => {
+  const { data: users } = await supabase.from('profiles').select('*');
+  const { data: chats } = await supabase
+    .from('chat_history')
+    .select('*')
+    .gte('created_at', new Date().toISOString().split('T')[0]);
+  res.json({
+    totalUsers: users?.length || 0,
+    questionsToday: chats?.length || 0,
+    users: users || []
+  });
+});
+
+// Porta de execucao
+const PORT = process.env.PORT || 3000;
