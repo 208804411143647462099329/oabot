@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OABOT - Assistente Jurídico Inteligente para OAB</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            background: #ffffff;
+            color: #1a1a1a;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        header {
+            border-bottom: 1px solid #e5e5e5;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            text-decoration: none;
+        }
+        
+        nav {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+        
+        nav a {
+            color: #666;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+        
+        nav a:hover { color: #1a1a1a; }
+        
+        .btn-start {
+            background: #1a1a1a;
+            color: white;
+            padding: 0.6rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+        
+        .btn-start:hover { opacity: 0.85; }
+        
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 48rem;
+            width: 100%;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem 0;
+        }
+        
+        .welcome {
+            text-align: center;
+            padding: 4rem 0;
+        }
+        
+        .welcome h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .welcome p {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 3rem;
+        }
+        
+        .suggestions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .suggestion {
+            padding: 0.75rem 1.25rem;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .suggestion:hover {
+            border-color: #1a1a1a;
+            transform: translateY(-2px);
+        }
+        
+        .message {
+            margin: 1rem 0;
+            display: flex;
+            gap: 1rem;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user { flex-direction: row-reverse; }
+        
+        .message-content {
+            max-width: 70%;
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            line-height: 1.6;
+        }
+        
+        .message.bot .message-content {
+            background: #f5f5f5;
+        }
+        
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .input-area {
+            border-top: 1px solid #e5e5e5;
+            padding-top: 1rem;
+            position: relative;
+        }
+        
+        .input-wrapper {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+        
+        #message-input {
+            flex: 1;
+            padding: 1rem;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+        
+        #message-input:focus {
+            border-color: #667eea;
+        }
+        
+        .send-btn {
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+        
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+        
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .credits {
+            position: absolute;
+            top: -25px;
+            right: 0;
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .credits.low { color: #ff6b6b; }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal.active { display: flex; }
+        
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .modal h2 { margin-bottom: 1rem; }
+        
+        .modal input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        
+        .modal button {
+            width: 100%;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">OABOT</a>
+        <nav>
+            <a href="#recursos">Recursos</a>
+            <a href="#diario">Diário de Estudos</a>
+            <a href="#planos">Planos</a>
+            <a href="#" class="btn-start" onclick="showLogin()">Começar Grátis</a>
+        </nav>
+    </header>
+
+    <div class="chat-container">
+        <div class="messages-area" id="messages">
+            <div class="welcome">
+                <h1>Bem-vindo ao OABOT</h1>
+                <p>Como posso ajudar você a conquistar a aprovação na OAB?</p>
+                <div class="suggestions">
+                    <button class="suggestion" onclick="sendSuggestion('Como funciona o Exame da OAB?')">
+                        📚 Como funciona o Exame?
+                    </button>
+                    <button class="suggestion" onclick="sendSuggestion('Quais matérias mais caem?')">
+                        📊 Matérias mais cobradas
+                    </button>
+                    <button class="suggestion" onclick="sendSuggestion('Monte um cronograma de estudos')">
+                        📅 Criar cronograma
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <div class="credits" id="credits"></div>
+            <div class="input-wrapper">
+                <input type="text" id="message-input" 
+                       placeholder="Digite sua pergunta sobre a OAB..." 
+                       onkeypress="if(event.key==='Enter')sendMessage()">
+                <button class="send-btn" onclick="sendMessage()">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <h2>🎯 Teste Grátis do OABOT</h2>
+            <p>Ganhe 3 perguntas grátis agora!</p>
+            <input type="email" id="emailInput" placeholder="Seu melhor e-mail">
+            <button onclick="doLogin()">Acessar Agora</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://oabot-api.onrender.com';
+        let userToken = localStorage.getItem('oabot_token');
+        let userCredits = 3;
+
+        function showLogin() {
+            document.getElementById('loginModal').classList.add('active');
+        }
+
+        function hideLogin() {
+            document.getElementById('loginModal').classList.remove('active');
+        }
+
+        async function doLogin() {
+            const email = document.getElementById('emailInput').value;
+            if (!email) return alert('Digite seu email');
+            
+            // Simulação de login para teste
+            userToken = 'demo_' + Date.now();
+            localStorage.setItem('oabot_token', userToken);
+            userCredits = 3;
+            updateCredits();
+            hideLogin();
+            alert('Acesso liberado! Você tem 3 perguntas grátis.');
+        }
+
+        function updateCredits() {
+            const el = document.getElementById('credits');
+            if (userCredits > 0) {
+                el.innerHTML = `Créditos: <strong>${userCredits}</strong>`;
+                el.className = userCredits <= 1 ? 'credits low' : 'credits';
+            } else {
+                el.innerHTML = '<a href="#planos">Comprar créditos</a>';
+            }
+        }
+
+        function sendSuggestion(text) {
+            document.getElementById('message-input').value = text;
+            sendMessage();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('message-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+            
+            if (!userToken) return showLogin();
+            if (userCredits <= 0) return alert('Créditos esgotados! Compre mais para continuar.');
+            
+            // Adiciona mensagem do usuário
+            addMessage('user', msg);
+            input.value = '';
+            
+            // Adiciona resposta do bot
+            const botMsg = await getBotResponse(msg);
+            addMessage('bot', botMsg);
+            
+            userCredits--;
+            updateCredits();
+        }
+
+        async function getBotResponse(msg) {
+            // Simulação de resposta para teste inicial
+            const responses = {
+                'Como funciona o Exame da OAB?': 'O Exame da OAB é dividido em duas fases: a 1ª fase consiste em 80 questões objetivas de múltipla escolha, enquanto a 2ª fase inclui uma peça prático-profissional e 4 questões discursivas. É necessário acertar no mínimo 50% em cada fase.',
+                'Quais matérias mais caem?': 'As matérias com maior incidência são: Ética Profissional (8-10 questões), Direito Constitucional, Direito Civil, Processo Civil, Direito Penal, Processo Penal, Direito do Trabalho e Direito Administrativo.',
+                'Monte um cronograma de estudos': 'Para um cronograma eficaz, recomendo: 1) Dedique 3-4 horas diárias, 2) Foque 70% do tempo nas matérias de maior peso, 3) Reserve 30% para revisão e questões, 4) Faça simulados semanais. Posso detalhar um plano personalizado baseado no seu tempo disponível.'
+            };
+            
+            return responses[msg] || 'Excelente pergunta! Para um estudo eficaz para a OAB, é importante focar nas matérias de maior peso e praticar constantemente com questões anteriores. Posso ajudar com estratégias específicas para cada disciplina.';
+        }
+
+        function addMessage(sender, text) {
+            const messagesEl = document.getElementById('messages');
+            const welcome = document.querySelector('.welcome');
+            if (welcome) welcome.style.display = 'none';
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + sender;
+            msgDiv.innerHTML = `<div class="message-content">${text}</div>`;
+            messagesEl.appendChild(msgDiv);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        // Inicialização
+        if (userToken) updateCredits();
+        else setTimeout(showLogin, 3000);
+    </script>
+</body>
+</html>
