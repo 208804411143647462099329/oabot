@@ -1,132 +1,65 @@
 const express = require('express');
 const cors = require('cors');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-// Dados temporários em memória
+// Dados em memória
 let users = {};
 let chats = [];
 
+// Rotas
 app.get('/', (req, res) => {
   res.json({ 
     status: 'online',
-    service: 'OABOT API v2.0',
-    timestamp: new Date(),
-    endpoints: ['/chat', '/api/register', '/api/credits/:email', '/api/admin/stats']
+    service: 'OABOT API',
+    version: '3.0'
   });
 });
 
 app.post('/chat', async (req, res) => {
-  try {
-    const { message, email } = req.body;
-    
-    if (!email || !message) {
-      return res.status(400).json({ error: 'Email e mensagem obrigatórios' });
-    }
-    
-    // Verificar usuário
-    if (!users[email]) {
-      users[email] = { credits: 5, plan: 'free' };
-    }
-    
-    if (users[email].credits <= 0) {
-      return res.status(403).json({ error: 'Sem créditos disponíveis' });
-    }
-    
-    // Resposta simulada (em produção, chamar OpenAI aqui)
-    const response = `[OABOT] Analisando sua pergunta sobre: "${message}". 
-    
-Para segunda fase penal do Exame de Ordem, lembre-se:
-- Habeas Corpus: remédio constitucional (art. 5º, LXVIII, CF)
-- Apelação: recurso contra sentença (art. 593, CPP)
-- RESE: Recurso em Sentido Estrito (art. 581, CPP)
-- Resposta à Acusação: defesa preliminar (art. 396-A, CPP)`;
-    
-    // Salvar chat
-    chats.push({
-      email,
-      question: message,
-      answer: response,
-      timestamp: new Date()
-    });
-    
-    // Descontar crédito
-    users[email].credits--;
-    
-    res.json({ 
-      response,
-      credits_remaining: users[email].credits
-    });
-    
-  } catch (error) {
-    console.error('Erro:', error);
-    res.status(500).json({ error: 'Erro no processamento' });
-  }
-});
-
-app.post('/api/register', async (req, res) => {
-  const { email, name, coupon } = req.body;
+  const { message, email } = req.body;
   
-  if (!email) {
-    return res.status(400).json({ error: 'Email obrigatório' });
+  if (!users[email]) {
+    users[email] = { credits: 5 };
   }
   
-  // Verificar cupom beta
-  let credits = 5;
-  let plan = 'free';
-  
-  if (coupon && coupon.startsWith('OABOT-BETA-')) {
-    credits = 50;
-    plan = 'beta';
+  if (users[email].credits <= 0) {
+    return res.status(403).json({ error: 'Sem créditos' });
   }
   
-  users[email] = {
-    email,
-    name: name || email.split('@')[0],
-    credits,
-    plan,
-    created_at: new Date()
-  };
+  const response = `OABOT: Sua pergunta sobre '${message}' foi processada. Em produção, aqui virá a resposta da IA.`;
+  
+  chats.push({ email, message, response, date: new Date() });
+  users[email].credits--;
   
   res.json({ 
-    success: true,
-    user: users[email]
+    response,
+    credits_remaining: users[email].credits
   });
 });
 
-app.get('/api/credits/:email', async (req, res) => {
-  const { email } = req.params;
-  const user = users[email] || { credits: 0, plan: 'free' };
-  
-  res.json({ 
-    email,
-    credits: user.credits,
-    plan: user.plan
-  });
+app.post('/api/register', (req, res) => {
+  const { email } = req.body;
+  users[email] = { email, credits: 5, plan: 'free' };
+  res.json({ success: true, user: users[email] });
 });
 
-app.get('/api/admin/stats', async (req, res) => {
-  const totalUsers = Object.keys(users).length;
-  const totalChats = chats.length;
-  const recentUsers = Object.values(users).slice(-10);
-  
+app.get('/api/credits/:email', (req, res) => {
+  const user = users[req.params.email] || { credits: 0 };
+  res.json({ credits: user.credits, plan: user.plan || 'free' });
+});
+
+app.get('/api/admin/stats', (req, res) => {
   res.json({
-    total_users: totalUsers,
-    total_chats: totalChats,
-    active_today: Object.values(users).filter(u => {
-      const created = new Date(u.created_at || Date.now());
-      return created.toDateString() === new Date().toDateString();
-    }).length,
-    recent_users: recentUsers,
-    recent_chats: chats.slice(-5)
+    total_users: Object.keys(users).length,
+    total_chats: chats.length,
+    users: Object.values(users)
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`OABOT API rodando na porta ${PORT}`);
-  console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log('OABOT rodando na porta ' + PORT);
 });
